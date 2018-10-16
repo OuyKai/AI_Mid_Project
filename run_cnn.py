@@ -3,28 +3,27 @@
 
 # from __future__ import print_function
 
-from gensim import corpora
-from collections import defaultdict
-
-import os
 import json
-import time
-import shutil
-from datetime import timedelta
+import os
 import pickle
+import shutil
+import time
+from collections import defaultdict
+from datetime import timedelta
 
 import numpy as np
 import tensorflow as tf
+from gensim import corpora
+from gensim.models import word2vec
 from sklearn import metrics
 
 from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
 
-num_classes = 5  # Attention!!!!!!!!!!!!!!!
+num_classes = 2  # Attention!!!!!!!!!!!!!!!
 
-
-base_dir = 'data/'+str(num_classes)
+base_dir = 'data/' + str(num_classes)
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
 test_dir = os.path.join(base_dir, 'testData_packed.txt')
 val_dir = os.path.join(base_dir, 'validData_packed.txt')
@@ -232,14 +231,12 @@ def test():
     cm = metrics.confusion_matrix(y_test_cls, y_pred_cls)
     print(cm)
 
-
-
     time_dif = get_time_dif(start_time)
     print("Time usage:", time_dif)
-    return msg.format(loss_test, acc_test),loss_test, acc_test
+    return msg.format(loss_test, acc_test), loss_test, acc_test
 
 
-def log_and_clean(test_result, para,loss_test, acc_test):
+def log_and_clean(test_result, para, loss_test, acc_test):
     filename_prefix = 'log/para_'
     filename_prefix_1 = 'log/result_'
     filename_suffix = '.txt'
@@ -270,12 +267,12 @@ def log_and_clean(test_result, para,loss_test, acc_test):
         os.mkdir('log')
     if not os.path.exists('log/best_result.txt'):
         f = open('log/best_result.txt', 'w', encoding='utf8')
-        dd = {'best_loss':loss_test,'best_accuracy':acc_test,'file_num':filenum}
+        dd = {'best_loss': loss_test, 'best_accuracy': acc_test, 'file_num': filenum}
         f.write(json.dumps(dd))
     else:
         f = open('log/best_result.txt', 'r', encoding='utf8')
         dd = json.loads(f.read())
-        if acc_test> dd['best_accuracy']:
+        if acc_test > dd['best_accuracy']:
             dd['best_loss'] = loss_test
             dd['best_accuracy'] = acc_test
             dd['file_num'] = filenum
@@ -298,24 +295,29 @@ def copy_to_save(path):
                 filenum = 0
                 while os.path.exists(filename_prefix + str(filenum) + '/'):
                     filenum += 1
-                os.mkdir(filename_prefix + str(filenum)+'/')
+                os.mkdir(filename_prefix + str(filenum) + '/')
             hh = path_file[len(path):]
-            shutil.copyfile(path_file, filename_prefix + str(filenum)+hh)
-            flag=False
+            shutil.copyfile(path_file, filename_prefix + str(filenum) + hh)
+            flag = False
         else:
             copy_to_save(path_file)
 
 
 def load_dic(num):
     if not os.path.exists(vocab_dir):
-        f = open("data/"+str(num)+"/original_data/trainData.txt", 'r', encoding='utf8')
+        f = open("data/" + str(num) + "/original_data/trainData.txt", 'r', encoding='utf8')
         documents = f.readlines()
+        o = open("data/" + str(num) + "/original_data/trainData_new.txt", 'w', encoding='utf8')
 
         # 去掉停用词
         stoplist = set('for a of the and to in'.split())
         # stoplist = set()
         texts = [[word for word in document.lower().split() if word not in stoplist]
                  for document in documents]
+        for line in texts:
+            for word in line:
+                o.write(word + " ")
+            o.write('\n')
 
         # 去掉只出现一次的单词
         frequency = defaultdict(int)
@@ -326,7 +328,7 @@ def load_dic(num):
                  for text in texts]
         max_len = 0
         for i in texts:
-            if len(i)>max_len:
+            if len(i) > max_len:
                 max_len = len(i)
         dictionary = corpora.Dictionary(texts)
         dictionary.save(vocab_dir)
@@ -337,44 +339,31 @@ def load_dic(num):
     max_len = 500
     if num == 2:
         max_len = 1463
-    return dictionary,max_len
+    return dictionary, max_len
 
 
 #制作词向量矩阵
-def build_word_array(word_to_id):
+def build_word_array(word_to_id, model):
     data={}
     vector_array=[]
     word_to_id_copy = word_to_id.copy()
-    with open("glove_word_vector.pkl",'wb') as o,\
-        open("vectors"+str(num_classes)+".txt",'r',encoding='utf8') as f:
-        for line in f.readlines():
-            num=0
-            line_vector=[]
-            line_key=''
-            for word in line.split():
-                if num==0:
-                    line_key=word
-                    num+=1
-                else:
-                    line_vector.append(float(word.strip()))
-            data[line_key]=line_vector
-        max_len=0
-        del_num=0
-        for line in word_to_id.keys():
-            # print(line)
-            word_to_id_copy[line]-=del_num
-            if line in data.keys():
-                vector_array.append(data[line])
-                if len(line) > max_len:
-                    max_len = len(line)
-            else:
-                word_to_id_copy.pop(line)
-                del_num+=1
+    with open("glove_word_vector.pkl", 'wb') as o:
+        for i in word_to_id.keys():
+            vector_array.append(list(model[i]))
 
         pickle.dump(vector_array,o)
         max_len = 1453
         return word_to_id_copy,max_len
 
+
+def build_vector(fileName):
+    if os.path.exists("data/" + str(num_classes) + "/" + str(num_classes) + "model.model"):
+        model = word2vec.Word2Vec.load("data/" + str(num_classes) + "/" + str(num_classes) + "model.model")
+    else:
+        sentences = word2vec.Text8Corpus(fileName)
+        model = word2vec.Word2Vec(sentences, size=200, min_count=0)
+        model.save("data/" + str(num_classes) + "/" + str(num_classes) + "model.model")
+    return model
 
 
 if __name__ == '__main__':
@@ -384,11 +373,12 @@ if __name__ == '__main__':
     config = TCNNConfig()
     config.num_classes = num_classes
     print('Building dictionary...')
-    dictionary,max_len = load_dic(num_classes)
+    dictionary, max_len = load_dic(num_classes)
+    model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
     word_to_id = dictionary.token2id
     print('Performing word2vec...')
     if config.Use_embedding:
-        word_to_id,max_len=build_word_array(word_to_id)
+        word_to_id, max_len = build_word_array(word_to_id, model)
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
     config.vocab_size = len(words)
@@ -396,6 +386,6 @@ if __name__ == '__main__':
     model = TextCNN(config)
     train()
     forecast()
-    log,loss_test, acc_test = test()
-    log_and_clean(log, config,loss_test, acc_test)
+    log, loss_test, acc_test = test()
+    log_and_clean(log, config, loss_test, acc_test)
     print('Completed!')

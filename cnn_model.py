@@ -30,7 +30,7 @@ class TCNNConfig(object):
     Use_embedding = False  # 使用glove
     Use_batch_normalization = True  #使用BN
 
-    num_hidden_layers = 3   #隐藏层数量
+    num_hidden_layers = 1  # 隐藏层数量
 
 
 class TextCNN(object):
