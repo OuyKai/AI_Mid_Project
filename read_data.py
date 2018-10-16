@@ -3,7 +3,7 @@ import os
 from collections import defaultdict
 from gensim import corpora
 
-base_dir = 'data/101'
+base_dir = 'data/regression'
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
 test_dir = os.path.join(base_dir, 'testData_packed.txt')
 val_dir = os.path.join(base_dir, 'validData_packed.txt')
@@ -44,22 +44,24 @@ def load_dic(num):
     return dictionary, max_len
 
 def read_data():
-    Train_Frist_Part = []
     Train_Frist_Part_Tmp = []
-    Test_Frist_Part = []
     Test_Frist_Part_Tmp = []
 
-    read_train_filename = 'data/101/original_data/train.xlsx'
-    read_test_filename = 'data/101/original_data/testStudent.xlsx'
-    write_train_filename = 'data/101/original_data/trainData.txt'
-    write_test_filename = 'data/101/original_data/testData.txt'
-    write_label_filename = 'data/101/original_data/trainLabel.txt'
+    read_train_filename = 'data/regression/original_data/train.xlsx'
+    read_test_filename = 'data/regression/original_data/testStudent.xlsx'
+    write_train_filename = 'data/regression/original_data/trainData.txt'
+    write_test_filename = 'data/regression/original_data/testData.txt'
+    write_label_filename = 'data/regression/original_data/trainLabel.txt'
+    write_train_other_filename = 'data/regression/original_data/trainOther.txt'
+    write_test_other_filename = 'data/regression/original_data/testOther.txt'
 
     read_train_file = pd.read_excel(read_train_filename)
     read_test_file = pd.read_excel(read_test_filename)
     write_train_tags_file = open(write_train_filename, 'w', encoding='UTF-8')
     write_test_tags_file = open(write_test_filename, 'w', encoding='UTF-8')
     write_label_file = open(write_label_filename, 'w', encoding='UTF-8')
+    write_train_other_file = open(write_train_other_filename, 'w', encoding='UTF-8')
+    write_test_other_file = open(write_test_other_filename, 'w', encoding='UTF-8')
 
     Additional_Number_of_Scoring = []
     for data in read_train_file['Additional_Number_of_Scoring']:
@@ -137,15 +139,19 @@ def read_data():
         tmp = []
         for j in range(len(Train_Frist_Part_Tmp)):
             tmp.append(Train_Frist_Part_Tmp[j][i])
-        Train_Frist_Part.append(tmp)
+        for num in tmp:
+            write_train_other_file.write(str(num) + ' ')
+        write_train_other_file.write('\n')
 
     for i in range(len(Test_Frist_Part_Tmp[0])):
         tmp = []
         for j in range(len(Test_Frist_Part_Tmp)):
             tmp.append(Test_Frist_Part_Tmp[j][i])
-        Test_Frist_Part.append(tmp)
+        for num in tmp:
+            write_test_other_file.write(str(num) + ' ')
+        write_test_other_file.write('\n')
 
-    dictionary, max_len = load_dic('101')
+    # dictionary, max_len = load_dic('regression')
     return
 
 read_data()
