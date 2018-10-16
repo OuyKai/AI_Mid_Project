@@ -27,7 +27,7 @@ class TCNNConfig(object):
     save_per_batch = 10  # 每多少轮存入tensorboard
 
     Three_filter_open = False  # 3种卷积核大小模式
-    Use_embedding = False  # 使用glove
+    Use_embedding = True  # 使用word2vec
     Use_batch_normalization = True  #使用BN
 
     num_hidden_layers = 1  # 隐藏层数量
