@@ -148,7 +148,7 @@ def train():
     total_batch = 0  # 总批次
     best_acc_val = 0.0  # 最佳验证集准确率
     last_improved = 0  # 记录上一次提升批次
-    require_improvement = 1000  # 如果超过1000轮未提升，提前结束训练
+    require_improvement = 300  # 如果超过1000轮未提升，提前结束训练
 
     flag = False
     for epoch in range(config.num_epochs):
@@ -220,7 +220,8 @@ def test():
         end_id = min((i + 1) * batch_size, data_len)
         feed_dict = {
             model.input_x: x_test[start_id:end_id],
-            model.keep_prob: 1.0
+            model.keep_prob: 1,
+            model.training: False
         }
         y_pred_cls[start_id:end_id] = session.run(model.y_pred_cls, feed_dict=feed_dict)
 
