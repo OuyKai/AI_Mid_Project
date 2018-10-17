@@ -185,7 +185,7 @@ def train():
             session.run(model.optim, feed_dict=feed_dict)  # 运行优化
             total_batch += 1
 
-            if total_batch - last_improved > require_improvement:
+            if total_batch - last_improved > require_improvement or acc_val < acc_train - 0.3:
                 # 验证集正确率长期不提升，提前结束训练
                 print("No optimization for a long time, auto-stopping...")
                 flag = True
@@ -345,12 +345,12 @@ def load_dic(num):
     return dictionary, max_len
 
 
-#制作词向量矩阵
-def build_word_array(word_to_id, model,item):
-    data={}
-    vector_array=[]
+# 制作词向量矩阵
+def build_word_array(word_to_id, model, item):
+    data = {}
+    vector_array = []
     word_to_id_copy = word_to_id.copy()
-    if item==1:
+    if item == 1:
         with open("word_vector.pkl", 'wb') as o:
             for i in word_to_id.keys():
                 vector_array.append(list(model[i]))
@@ -383,9 +383,10 @@ def build_word_array(word_to_id, model,item):
                 else:
                     word_to_id_copy.pop(line)
                     del_num += 1
-        pickle.dump(vector_array, o)
+            pickle.dump(vector_array, o)
         max_len = 1453
-        return word_to_id_copy,max_len
+        return word_to_id_copy, max_len
+
 
 def build_vector(fileName):
     if os.path.exists("data/" + str(num_classes) + "/" + str(num_classes) + "model.model"):
@@ -410,9 +411,9 @@ if __name__ == '__main__':
     id_to_word = dictionary.id2token
     print('Performing word2vec...')
     if config.Use_embedding:
-        config.choose_wordVector=0  #0是glove,1是word2vec
+        config.choose_wordVector = 0  # 0是glove,1是word2vec
         model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
-        word_to_id, max_len = build_word_array(word_to_id, model,config.choose_wordVector)
+        word_to_id, max_len = build_word_array(word_to_id, model, config.choose_wordVector)
 
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
@@ -425,4 +426,4 @@ if __name__ == '__main__':
     forecast()
     log, loss_test, acc_test = test()
     log_and_clean(log, config, loss_test, acc_test)
-    print('Completed!')
+    print('Completed!\a')

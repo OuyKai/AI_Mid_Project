@@ -22,15 +22,15 @@ class TCNNConfig(object):
     learning_rate = 1e-3  # 学习率
 
     batch_size = 100  # 每批训练大小
-    num_epochs = 1  # 总迭代轮次
+    num_epochs = 15  # 总迭代轮次
 
     print_per_batch = 100  # 每多少轮输出一次结果
     save_per_batch = 10  # 每多少轮存入tensorboard
 
     Three_filter_open = False  # 3种卷积核大小模式
-    Use_embedding = False  # 使用word2vec
+    Use_embedding = True  # 使用word2vec
     choose_wordVector = 0  # 0是glove,1是word2vector
-    Use_batch_normalization = True  # 使用BN
+    Use_batch_normalization = False  # 使用BN
 
     num_hidden_layers = 1  # 隐藏层数量
 
