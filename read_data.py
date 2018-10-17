@@ -1,6 +1,7 @@
-import pandas as pd
 import os
 from collections import defaultdict
+
+import pandas as pd
 from gensim import corpora
 
 base_dir = 'data/regression'
@@ -150,8 +151,4 @@ def read_data():
         for num in tmp:
             write_test_other_file.write(str(num) + ' ')
         write_test_other_file.write('\n')
-
-    # dictionary, max_len = load_dic('regression')
-    return
-
-read_data()
+    x = 1

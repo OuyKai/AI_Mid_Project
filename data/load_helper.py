@@ -1,8 +1,5 @@
 # coding: utf-8
 
-import sys
-from collections import Counter
-
 import numpy as np
 import tensorflow.contrib.keras as kr
 
@@ -32,7 +29,8 @@ def read_file(filename):
             try:
                 label, content = line.strip().split('\t')
                 if content:
-                    contents.append(list(native_content(content)))
+                    stoplist = set('for a of the and to in'.split())
+                    contents.append([word for word in content.lower().split() if word not in stoplist])
                     labels.append(native_content(label))
             except:
                 pass

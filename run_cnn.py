@@ -336,7 +336,7 @@ def load_dic(num):
     else:
         dictionary = corpora.Dictionary.load(vocab_dir)
 
-    max_len = 500
+    max_len = 1500
     if num == 2:
         max_len = 1463
     return dictionary, max_len
@@ -373,11 +373,14 @@ if __name__ == '__main__':
     config.num_classes = num_classes
     print('Building dictionary...')
     dictionary, max_len = load_dic(num_classes)
+    # dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=None)
     model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
     word_to_id = dictionary.token2id
+    id_to_word = dictionary.id2token
     print('Performing word2vec...')
     if config.Use_embedding:
         word_to_id, max_len = build_word_array(word_to_id, model)
+
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
     config.vocab_size = len(words)
