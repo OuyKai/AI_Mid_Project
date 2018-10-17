@@ -8,6 +8,7 @@ import os
 import pickle
 import shutil
 import time
+import winsound
 from collections import defaultdict
 from datetime import timedelta
 
@@ -406,7 +407,8 @@ if __name__ == '__main__':
     config.num_classes = num_classes
     print('Building dictionary...')
     dictionary, max_len = load_dic(num_classes)
-    # dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=None)
+    dictionary.filter_extremes(no_below=1, no_above=0.5, keep_n=None)
+    dictionary.compactify()
     word_to_id = dictionary.token2id
     id_to_word = dictionary.id2token
     print('Performing word2vec...')
@@ -420,10 +422,11 @@ if __name__ == '__main__':
     config.vocab_size = len(words)
     # config.seq_length = max_len
     model = TextCNN(config)
-    with open("glove_word_vector.pkl", 'rb') as f:
+    with open("word_vector.pkl", 'rb') as f:
         embedding_weights = pickle.load(f)
     train()
     forecast()
     log, loss_test, acc_test = test()
     log_and_clean(log, config, loss_test, acc_test)
-    print('Completed!\a')
+    print('Completed!')
+    winsound.Beep(3000, 3000)

@@ -3,25 +3,24 @@
 
 # from __future__ import print_function
 
-from gensim import corpora
-from collections import defaultdict
-
-import os
 import json
-import time
-import shutil
-from datetime import timedelta
+import os
 import pickle
+import shutil
+import time
+from collections import defaultdict
+from datetime import timedelta
 
 import numpy as np
 import tensorflow as tf
+from gensim import corpora
 from sklearn import metrics
 
 from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
-
 from read_data import read_data
+
 num_classes = 101  # Attention!!!!!!!!!!!!!!!
 
 
@@ -346,8 +345,8 @@ def build_word_array(word_to_id):
     data={}
     vector_array=[]
     word_to_id_copy = word_to_id.copy()
-    with open("glove_word_vector.pkl",'wb') as o,\
-        open("vectors"+str(num_classes)+".txt",'r',encoding='utf8') as f:
+    with open("word_vector.pkl", 'wb') as o, \
+            open("vectors"+str(num_classes)+".txt",'r',encoding='utf8') as f:
         for line in f.readlines():
             num=0
             line_vector=[]
