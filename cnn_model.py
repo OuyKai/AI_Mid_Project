@@ -2,6 +2,7 @@
 
 import pickle
 
+import numpy as np
 import tensorflow as tf
 
 
@@ -12,7 +13,7 @@ class TCNNConfig(object):
     seq_length = 1500  # 序列长度
     num_classes = -1  # 类别数
     num_filters = 200  # 卷积核数目
-    kernel_size = 5  # 卷积核尺寸
+    kernel_size = 6  # 卷积核尺寸
     vocab_size = -1  # 词汇表达小
 
     hidden_dim = 128  # 全连接层神经元
@@ -20,7 +21,7 @@ class TCNNConfig(object):
     dropout_keep_prob = 0.5  # dropout保留比例
     learning_rate = 1e-3  # 学习率
 
-    batch_size = 150  # 每批训练大小
+    batch_size = 100  # 每批训练大小
     num_epochs = 15  # 总迭代轮次
 
     print_per_batch = 100  # 每多少轮输出一次结果
@@ -63,7 +64,8 @@ class TextCNN(object):
         # 词向量映射
         with tf.device('/cpu:0'):
             if self.config.Use_embedding:
-                embedding = tf.Variable(embedding_weights, trainable=True, name='embedding_weights', dtype='float32')
+                embedding = tf.Variable(np.array(embedding_weights), trainable=True, name='embedding_weights',
+                                        dtype='float32')
             else:
                 embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.embedding_dim])
             embedding_inputs = tf.nn.embedding_lookup(embedding, self.input_x)

@@ -384,8 +384,10 @@ if __name__ == '__main__':
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
     config.vocab_size = len(words)
-    config.seq_length = max_len
+    # config.seq_length = max_len
     model = TextCNN(config)
+    with open("glove_word_vector.pkl", 'rb') as f:
+        embedding_weights = pickle.load(f)
     train()
     forecast()
     log, loss_test, acc_test = test()
