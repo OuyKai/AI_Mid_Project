@@ -29,6 +29,7 @@ class TCNNConfig(object):
 
     Three_filter_open = False  # 3种卷积核大小模式
     Use_embedding = True  # 使用word2vec
+    choose_wordVector = 0  # 0是glove,1是word2vector
     Use_batch_normalization = True  #使用BN
 
     num_hidden_layers = 1  # 隐藏层数量
@@ -58,7 +59,7 @@ class TextCNN(object):
         """CNN模型"""
 
         # 词向量加载
-        with open("glove_word_vector.pkl", 'rb') as f:
+        with open("word_vector.pkl", 'rb') as f:
             embedding_weights = pickle.load(f)
 
         # 词向量映射

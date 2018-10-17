@@ -343,15 +343,44 @@ def load_dic(num):
 
 
 #制作词向量矩阵
-def build_word_array(word_to_id, model):
+def build_word_array(word_to_id, model,item):
     data={}
     vector_array=[]
     word_to_id_copy = word_to_id.copy()
-    with open("glove_word_vector.pkl", 'wb') as o:
-        for i in word_to_id.keys():
-            vector_array.append(list(model[i]))
+    if item==1:
+        with open("word_vector.pkl", 'wb') as o:
+            for i in word_to_id.keys():
+                vector_array.append(list(model[i]))
 
-        pickle.dump(vector_array,o)
+    else:
+        with open("word_vector.pkl", 'wb') as o, \
+                open("vectors" + str(num_classes) + ".txt", 'r', encoding='utf8') as f:
+            # for i in word_to_id.keys():
+            # vector_array.append(list(model[i]))
+            for line in f.readlines():
+                num = 0
+                line_vector = []
+                line_key = ''
+                for word in line.split():
+                    if num == 0:
+                        line_key = word
+                        num += 1
+                    else:
+                        line_vector.append(float(word.strip()))
+                data[line_key] = line_vector
+            max_len = 0
+            del_num = 0
+            for line in word_to_id.keys():
+                # print(line)
+                word_to_id_copy[line] -= del_num
+                if line in data.keys():
+                    vector_array.append(data[line])
+                    if len(line) > max_len:
+                        max_len = len(line)
+                else:
+                    word_to_id_copy.pop(line)
+                    del_num += 1
+        pickle.dump(vector_array, o)
         max_len = 1453
         return word_to_id_copy,max_len
 
@@ -374,12 +403,13 @@ if __name__ == '__main__':
     print('Building dictionary...')
     dictionary, max_len = load_dic(num_classes)
     # dictionary.filter_extremes(no_below=5, no_above=0.5, keep_n=None)
-    model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
     word_to_id = dictionary.token2id
     id_to_word = dictionary.id2token
     print('Performing word2vec...')
     if config.Use_embedding:
-        word_to_id, max_len = build_word_array(word_to_id, model)
+        config.choose_wordVector=0  #0是glove,1是word2vec
+        model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
+        word_to_id, max_len = build_word_array(word_to_id, model,config.choose_wordVector)
 
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
