@@ -21,7 +21,7 @@ from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
 
-num_classes = 5  # Attention!!!!!!!!!!!!!!!
+num_classes = 2  # Attention!!!!!!!!!!!!!!!
 
 base_dir = 'data/' + str(num_classes)
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
@@ -43,11 +43,12 @@ def get_time_dif(start_time):
     return timedelta(seconds=int(round(time_dif)))
 
 
-def feed_data(x_batch, y_batch, keep_prob):
+def feed_data(x_batch, y_batch, keep_prob, training):
     feed_dict = {
         model.input_x: x_batch,
         model.input_y: y_batch,
-        model.keep_prob: keep_prob
+        model.keep_prob: keep_prob,
+        model.training: training
     }
     return feed_dict
 
@@ -60,7 +61,7 @@ def evaluate(sess, x_, y_):
     total_acc = 0.0
     for x_batch, y_batch in batch_eval:
         batch_len = len(x_batch)
-        feed_dict = feed_data(x_batch, y_batch, 1.0)
+        feed_dict = feed_data(x_batch, y_batch, 1.0, False)
         loss, acc = sess.run([model.loss, model.acc], feed_dict=feed_dict)
         total_loss += loss * batch_len
         total_acc += acc * batch_len
@@ -90,7 +91,8 @@ def forecast():
         end_id = min((i + 1) * batch_size, data_len)
         feed_dict = {
             model.input_x: x_test[start_id:end_id],
-            model.keep_prob: 1.0
+            model.keep_prob: 1.0,
+            model.training: False
         }
         y_pred_cls[start_id:end_id] = session.run(model.y_pred_cls, feed_dict=feed_dict)
 
@@ -153,7 +155,7 @@ def train():
         print('Epoch:', epoch + 1)
         batch_train = batch_iter(x_train, y_train, config.batch_size)
         for x_batch, y_batch in batch_train:
-            feed_dict = feed_data(x_batch, y_batch, config.dropout_keep_prob)
+            feed_dict = feed_data(x_batch, y_batch, config.dropout_keep_prob, True)
 
             if total_batch % config.save_per_batch == 0:
                 # 每多少轮次将训练结果写入tensorboard scalar

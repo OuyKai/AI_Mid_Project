@@ -28,7 +28,7 @@ class TCNNConfig(object):
     save_per_batch = 10  # 每多少轮存入tensorboard
 
     Three_filter_open = False  # 3种卷积核大小模式
-    Use_embedding = True  # 使用word2vec
+    Use_embedding = False  # 使用word2vec
     choose_wordVector = 0  # 0是glove,1是word2vector
     Use_batch_normalization = True  #使用BN
 
@@ -45,6 +45,7 @@ class TextCNN(object):
         self.input_x = tf.placeholder(tf.int32, [None, self.config.seq_length], name='input_x')
         self.input_y = tf.placeholder(tf.float32, [None, self.config.num_classes], name='input_y')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
+        self.training = tf.placeholder(tf.bool, name='keep_prob')
         l2_loss = tf.constant(0.0)
         self.cnn()
 
@@ -59,8 +60,9 @@ class TextCNN(object):
         """CNN模型"""
 
         # 词向量加载
-        with open("word_vector.pkl", 'rb') as f:
-            embedding_weights = pickle.load(f)
+        if self.config.Use_embedding:
+            with open("word_vector.pkl", 'rb') as f:
+                embedding_weights = pickle.load(f)
 
         # 词向量映射
         with tf.device('/cpu:0'):
@@ -92,23 +94,23 @@ class TextCNN(object):
             # 全连接层，后面接dropout以及relu激活
             if self.config.Three_filter_open:
                 if self.config.Use_batch_normalization:
-                    gmp_all = self.BN(gmp_all, self.config.num_filters * 3)
+                    gmp_all = tf.layers.batch_normalization(gmp_all, training=self.training, momentum=0.9)
                 gmp_out = gmp_all
             else:
                 if self.config.Use_batch_normalization:
-                    gmp_0 = self.BN(gmp_0, self.config.num_filters)
+                    gmp_0 = tf.layers.batch_normalization(gmp_0, training=self.training, momentum=0.9)
                 gmp_out = gmp_0
 
             fc_list = [tf.layers.dense(gmp_out, self.config.hidden_dim, name='fc1')]
             fc_list[-1] = tf.contrib.layers.dropout(fc_list[-1], self.keep_prob)
             if self.config.Use_batch_normalization:
-                fc_list[-1] = self.BN(fc_list[-1], self.config.hidden_dim)
+                fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.9)
             fc_list[-1] = tf.nn.relu6(fc_list[-1])
             for i in range(self.config.num_hidden_layers-1):
                 fc_list.append(tf.layers.dense(fc_list[-1], self.config.hidden_dim, name='fc1_'+str(i+1)))
                 fc_list[-1] = tf.contrib.layers.dropout(fc_list[-1], self.keep_prob)
                 if self.config.Use_batch_normalization:
-                    fc_list[-1] = self.BN(fc_list[-1], self.config.hidden_dim)
+                    fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.9)
                 fc_list[-1] = tf.nn.relu6(fc_list[-1])
             # 分类器
 
