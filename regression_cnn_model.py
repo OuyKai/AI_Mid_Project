@@ -1,7 +1,6 @@
 # coding: utf-8
 
 import pickle
-
 import tensorflow as tf
 
 
@@ -13,7 +12,8 @@ class TCNNConfig(object):
     num_classes = 101  # 类别数
     num_filters = 777  # 卷积核数目
     kernel_size = 7  # 卷积核尺寸
-    vocab_size = -1  # 词汇表达小
+    vocab_size = -1  # 词汇表大小
+    num_label = 6  # 特征数目
 
     hidden_dim = 77  # 全连接层神经元
 
@@ -28,7 +28,7 @@ class TCNNConfig(object):
 
     Three_filter_open = False  # 3种卷积核大小模式
     Use_embedding = True  # 使用glove
-    Use_batch_normalization = True  #使用BN
+    Use_batch_normalization = True  # 使用BN
 
 
 class TextCNN(object):
@@ -37,12 +37,12 @@ class TextCNN(object):
     def __init__(self, config):
         self.config = config
 
-        # 三个待输入的数据
+        # 待输入的数据
         self.input_x = tf.placeholder(tf.int32, [None, self.config.seq_length], name='input_x')
         self.input_y = tf.placeholder(tf.float32, [None, self.config.num_classes], name='input_y')
-        self.input_re = tf.placeholder(tf.int32, [None, 6], name='input_re')
+        self.input_re = tf.placeholder(tf.int32, [None, self.config.num_label], name='input_re')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
-        l2_loss = tf.constant(0.0)
+        self.l2_loss = tf.constant(0.0)
         self.cnn()
 
     def BN(self, input, x):
@@ -67,13 +67,14 @@ class TextCNN(object):
                 embedding = tf.get_variable('embedding', [self.config.vocab_size, self.config.embedding_dim])
             embedding_inputs = tf.nn.embedding_lookup(embedding, self.input_x)
 
-
         with tf.name_scope("cnn"):
             # CNN layer
             conv_0 = tf.layers.conv1d(embedding_inputs, self.config.num_filters, self.config.kernel_size, name='conv_0')
             if self.config.Three_filter_open:
-                conv_1 = tf.layers.conv1d(embedding_inputs, self.config.num_filters, self.config.kernel_size-1, name='conv_1')
-                conv_2 = tf.layers.conv1d(embedding_inputs, self.config.num_filters, self.config.kernel_size+1, name='conv_2')
+                conv_1 = tf.layers.conv1d(embedding_inputs, self.config.num_filters, self.config.kernel_size - 1,
+                                          name='conv_1')
+                conv_2 = tf.layers.conv1d(embedding_inputs, self.config.num_filters, self.config.kernel_size + 1,
+                                          name='conv_2')
 
             # global max pooling layer
 
@@ -83,8 +84,7 @@ class TextCNN(object):
                 gmp_1 = tf.reduce_max(conv_1, reduction_indices=[1], name='gmp_1')
                 gmp_2 = tf.reduce_max(conv_2, reduction_indices=[1], name='gmp_2')
 
-                gmp_all = tf.concat([gmp_0, gmp_1, gmp_2,self.input_re], 1, name='combine')
-
+                gmp_all = tf.concat([gmp_0, gmp_1, gmp_2, self.input_re], 1, name='combine')
 
         with tf.name_scope("score"):
             # 全连接层，后面接dropout以及relu激活

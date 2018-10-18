@@ -3,39 +3,35 @@
 
 # from __future__ import print_function
 
-from gensim import corpora
-from collections import defaultdict
-import os
 import json
-import time
-import shutil
-from datetime import timedelta
+import os
 import pickle
+import shutil
+import time
+from collections import defaultdict
+from datetime import timedelta
+
 import numpy as np
 import tensorflow as tf
 from gensim import corpora
 from gensim.models import word2vec
 from sklearn import metrics
 
-from regression_cnn_model import TCNNConfig, TextCNN
-from data.load_helper_regression import read_category, batch_iter, process_file
-from regression_data import read_data, data_pack, corrcoef
+from regression_cnn_model_simple import TCNNConfig, TextCNN
+from data.load_helper import read_category, batch_iter, process_file
+from regression_data import data_pack, corrcoef
 
 num_classes = 101  # Attention!!!!!!!!!!!!!!!
 
 base_dir = 'data/' + str(num_classes)
-train_dir = os.path.join(base_dir, 'trainData_packed.txt')
-train_other_dir = os.path.join(base_dir, 'train_otherData_packed.txt')
-test_dir = os.path.join(base_dir, 'testData_packed.txt')
-test_other_dir = os.path.join(base_dir, 'test_otherData_packed.txt')
-val_dir = os.path.join(base_dir, 'validData_packed.txt')
-val_other_dir = os.path.join(base_dir, 'val_otherData_packed.txt')
+train_dir = os.path.join(base_dir, 'train_otherData_packed.txt')
+test_dir = os.path.join(base_dir, 'test_otherData_packed.txt')
+val_dir = os.path.join(base_dir, 'valid_otherData_packed.txt')
 vocab_dir = os.path.join(base_dir, 'My_dic')
-forecast_dir = os.path.join(base_dir, 'forecastData_packed.txt')
-forecast_other_dir = os.path.join(base_dir, 'forecast_otherData_packed.txt')
+forecast_dir = os.path.join(base_dir, 'forecast_otherData_packed.txt')
+result_dir = 'output'
 save_dir = 'checkpoints/textcnn'
 save_path = os.path.join(save_dir, 'best_validation')  # 最佳验证结果保存路径
-result_dir = 'output'
 
 
 def get_time_dif(start_time):
@@ -45,25 +41,24 @@ def get_time_dif(start_time):
     return timedelta(seconds=int(round(time_dif)))
 
 
-def feed_data(x_batch, y_batch, re_batch, keep_prob):
+def feed_data(x_batch, y_batch, keep_prob):
     feed_dict = {
         model.input_x: x_batch,
         model.input_y: y_batch,
-        model.input_re: re_batch,
         model.keep_prob: keep_prob
     }
     return feed_dict
 
 
-def evaluate(sess, x_, y_, re_):
+def evaluate(sess, x_, y_):
     """评估在某一数据上的准确率和损失"""
     data_len = len(x_)
-    batch_eval = batch_iter(x_, y_, re_, 128)
+    batch_eval = batch_iter(x_, y_, 128)
     total_loss = 0.0
     total_acc = 0.0
-    for x_batch, y_batch, re_batch in batch_eval:
+    for x_batch, y_batch in batch_eval:
         batch_len = len(x_batch)
-        feed_dict = feed_data(x_batch, y_batch, re_batch, 1.0)
+        feed_dict = feed_data(x_batch, y_batch, 1.0)
         loss, acc = sess.run([model.loss, model.acc], feed_dict=feed_dict)
         total_loss += loss * batch_len
         total_acc += acc * batch_len
@@ -74,7 +69,7 @@ def evaluate(sess, x_, y_, re_):
 def forecast():
     print("Loading forecast data...")
     start_time = time.time()
-    x_test, y_test = process_file(forecast_dir, forecast_other_dir, word_to_id, cat_to_id, config.seq_length)
+    x_test, y_test = process_file(forecast_dir, word_to_id, cat_to_id, config.seq_length)
 
     session = tf.Session()
     session.run(tf.global_variables_initializer())
@@ -137,8 +132,8 @@ def train():
     print("Loading training and validation data...")
     # 载入训练集与验证集
     start_time = time.time()
-    x_train, y_train, re_train = process_file(train_dir, train_other_dir, word_to_id, cat_to_id, config.seq_length)
-    x_val, y_val, re_val = process_file(val_dir, val_other_dir, word_to_id, cat_to_id, config.seq_length)
+    x_train, y_train = process_file(train_dir, word_to_id, cat_to_id, config.seq_length)
+    x_val, y_val = process_file(val_dir, word_to_id, cat_to_id, config.seq_length)
     time_dif = get_time_dif(start_time)
     print("Time usage:", time_dif)
 
@@ -157,9 +152,9 @@ def train():
     flag = False
     for epoch in range(config.num_epochs):
         print('Epoch:', epoch + 1)
-        batch_train = batch_iter(x_train, y_train, re_train, config.batch_size)
-        for x_batch, y_batch, re_batch in batch_train:
-            feed_dict = feed_data(x_batch, y_batch, re_batch, config.dropout_keep_prob)
+        batch_train = batch_iter(x_train, y_train, config.batch_size)
+        for x_batch, y_batch in batch_train:
+            feed_dict = feed_data(x_batch, y_batch, config.dropout_keep_prob)
 
             if total_batch % config.save_per_batch == 0:
                 # 每多少轮次将训练结果写入tensorboard scalar
@@ -170,7 +165,7 @@ def train():
                 # 每多少轮次输出在训练集和验证集上的性能
                 feed_dict[model.keep_prob] = 1.0
                 loss_train, acc_train = session.run([model.loss, model.acc], feed_dict=feed_dict)
-                loss_val, acc_val = evaluate(session, x_val, y_val, re_val)  # todo
+                loss_val, acc_val = evaluate(session, x_val, y_val)  # todo
 
                 if acc_val > best_acc_val:
                     # 保存最好结果
@@ -182,8 +177,8 @@ def train():
                     improved_str = ''
 
                 time_dif = get_time_dif(start_time)
-                msg = 'Iter: {0:>6}, Train Loss: {1:>6.2}, Train Acc: {2:>7.2%},' \
-                      + ' Val Loss: {3:>6.2}, Val Acc: {4:>7.2%}, Time: {5} {6}'
+                msg = 'Iter: {0:>6},  Train Loss: {1:>6.2},  Train Acc: {2:>7.2%},' \
+                      + '  Val Loss: {3:>6.2},  Val Acc: {4:>7.2%},  Time: {5} {6}'
                 print(msg.format(total_batch, loss_train, acc_train, loss_val, acc_val, time_dif, improved_str))
 
             session.run(model.optim, feed_dict=feed_dict)  # 运行优化
@@ -201,7 +196,7 @@ def train():
 def test():
     print("Loading test data...")
     start_time = time.time()
-    x_test, y_test, re_test = process_file(test_dir, test_other_dir, word_to_id, cat_to_id, config.seq_length)
+    x_test, y_test = process_file(test_dir, word_to_id, cat_to_id, config.seq_length)
 
     session = tf.Session()
     session.run(tf.global_variables_initializer())
@@ -209,7 +204,7 @@ def test():
     saver.restore(sess=session, save_path=save_path)  # 读取保存的模型
 
     print('Testing...')
-    loss_test, acc_test = evaluate(session, x_test, y_test, re_test)
+    loss_test, acc_test = evaluate(session, x_test, y_test)
     msg = 'Test Loss: {0:>6.2}, Test Acc: {1:>7.2%}'
     print(msg.format(loss_test, acc_test))
 
@@ -312,14 +307,19 @@ def copy_to_save(path):
 
 def load_dic(num):
     if not os.path.exists(vocab_dir):
-        f = open("data/" + str(num) + "/original_data/trainData.txt", 'r', encoding='utf8')
+        f = open("data/" + str(num) + "/original_data/trainOther.txt", 'r', encoding='utf8')
         documents = f.readlines()
+        o = open("data/" + str(num) + "/original_data/trainOther_new.txt", 'w', encoding='utf8')
 
         # 去掉停用词
         stoplist = set('for a of the and to in'.split())
         # stoplist = set()
         texts = [[word for word in document.lower().split() if word not in stoplist]
                  for document in documents]
+        for line in texts:
+            for word in line:
+                o.write(word + " ")
+            o.write('\n')
 
         # 去掉只出现一次的单词
         frequency = defaultdict(int)
@@ -375,7 +375,7 @@ if __name__ == '__main__':
     config.num_classes = num_classes
     print('Building dictionary...')
     dictionary, max_len = load_dic(num_classes)
-    model = build_vector("data/" + str(num_classes) + "/original_data/trainData.txt")
+    model = build_vector("data/" + str(num_classes) + "/original_data/trainOther.txt")
     word_to_id = dictionary.token2id
     print('Performing word2vec...')
     if config.Use_embedding:

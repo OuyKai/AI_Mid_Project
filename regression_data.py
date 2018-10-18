@@ -1,26 +1,23 @@
+import random
 import pandas as pd
 import os
 from collections import defaultdict
 from gensim import corpora
+from math import sqrt
 
-base_dir = 'data/regression'
-train_dir = os.path.join(base_dir, 'trainData_packed.txt')
-test_dir = os.path.join(base_dir, 'testData_packed.txt')
-val_dir = os.path.join(base_dir, 'validData_packed.txt')
+
+base_dir = 'data/101'
 vocab_dir = os.path.join(base_dir, 'My_dic')
-forecast_dir = os.path.join(base_dir, 'forecastData_packed.txt')
 
 def load_dic(num):
     if not os.path.exists(vocab_dir):
-        f = open("data/" + str(num) + "/original_data/trainData.txt", 'r', encoding='utf8')
+        f = open("data/" + str(num) + "/original_data/train_otherData.txt", 'r', encoding='utf8')
         documents = f.readlines()
-
         # 去掉停用词
         stoplist = set('for a of the and to in'.split())
         # stoplist = set()
         texts = [[word for word in document.lower().split() if word not in stoplist]
                  for document in documents]
-
         # 去掉只出现一次的单词
         frequency = defaultdict(int)
         for text in texts:
@@ -43,17 +40,18 @@ def load_dic(num):
         max_len = 1463
     return dictionary, max_len
 
-def read_data():
+
+def read_data(num):
     Train_Frist_Part_Tmp = []
     Test_Frist_Part_Tmp = []
 
-    read_train_filename = 'data/regression/original_data/train.xlsx'
-    read_test_filename = 'data/regression/original_data/testStudent.xlsx'
-    write_train_filename = 'data/regression/original_data/trainData.txt'
-    write_test_filename = 'data/regression/original_data/testData.txt'
-    write_label_filename = 'data/regression/original_data/trainLabel.txt'
-    write_train_other_filename = 'data/regression/original_data/trainOther.txt'
-    write_test_other_filename = 'data/regression/original_data/testOther.txt'
+    read_train_filename = 'data/' + str(num) + '/original_data/train.xlsx'
+    read_test_filename = 'data/' + str(num) + '/original_data/testStudent.xlsx'
+    write_train_filename = 'data/' + str(num) + '/original_data/trainData.txt'
+    write_test_filename = 'data/' + str(num) + '/original_data/testData.txt'
+    write_label_filename = 'data/' + str(num) + '/original_data/trainLabel.txt'
+    write_train_other_filename = 'data/' + str(num) + '/original_data/trainOther.txt'
+    write_test_other_filename = 'data/' + str(num) + '/original_data/testOther.txt'
 
     read_train_file = pd.read_excel(read_train_filename)
     read_test_file = pd.read_excel(read_test_filename)
@@ -139,19 +137,106 @@ def read_data():
         tmp = []
         for j in range(len(Train_Frist_Part_Tmp)):
             tmp.append(Train_Frist_Part_Tmp[j][i])
-        for num in tmp:
-            write_train_other_file.write(str(num) + ' ')
+        for number in tmp:
+            write_train_other_file.write(str(number) + ' ')
         write_train_other_file.write('\n')
 
     for i in range(len(Test_Frist_Part_Tmp[0])):
         tmp = []
         for j in range(len(Test_Frist_Part_Tmp)):
             tmp.append(Test_Frist_Part_Tmp[j][i])
-        for num in tmp:
-            write_test_other_file.write(str(num) + ' ')
+        write_test_other_file.write(str(0) + '\t')
+        for number in tmp:
+            write_test_other_file.write(str(number) + ' ')
         write_test_other_file.write('\n')
 
-    # dictionary, max_len = load_dic('regression')
+    # load_dic(num)
     return
 
-read_data()
+
+def data_pack(num):
+    read_train_filename = "data/" + str(num) + "/original_data/trainData.txt"
+    read_train_other_filename = "data/" + str(num) + "/original_data/trainOther.txt"
+    read_label_filename = "data/" + str(num) + "/original_data/trainLabel.txt"
+    train = open(read_train_filename, 'r', encoding='utf8')
+    other = open(read_train_other_filename, 'r', encoding='UTF-8')
+    label = open(read_label_filename, 'r', encoding='utf8')
+    train_data = train.readlines()
+    other_data = other.readlines()
+    label_data = label.readlines()
+
+    # shuffle
+    randnum = random.randint(0, 100)
+    random.seed(randnum)
+    random.shuffle(train_data)
+    random.seed(randnum)
+    random.shuffle(other_data)
+    random.seed(randnum)
+    random.shuffle(label_data)
+
+    # write
+    new_train = open('data/' + str(num) + '/trainData_packed.txt', 'w', encoding='utf8')
+    new_valid = open('data/' + str(num) + '/validData_packed.txt', 'w', encoding='utf8')
+    new_test = open('data/' + str(num) + '/testData_packed.txt', 'w', encoding='utf8')
+    new_other_train = open('data/' + str(num) + '/train_otherData_packed.txt', 'w', encoding='utf8')
+    new_other_valid = open('data/' + str(num) + '/valid_otherData_packed.txt', 'w', encoding='utf8')
+    new_other_test = open('data/' + str(num) + '/test_otherData_packed.txt', 'w', encoding='utf8')
+
+    for i in range(int(len(train_data) * 3 / 5)):
+        tmp = str(label_data[i].strip()) + '\t' + train_data[i]
+        new_train.write(tmp)
+        # new_other_train.write(other_data[i])
+        tmp = str(label_data[i].strip()) + '\t' + other_data[i]
+        new_other_train.write(tmp)
+    for i in range(int(len(train_data) * 3 / 5), int(len(train_data) * 4 / 5)):
+        tmp = str(label_data[i].strip()) + '\t' + train_data[i]
+        new_valid.write(tmp)
+        # new_other_valid.write(other_data[i])
+        tmp = str(label_data[i].strip()) + '\t' + other_data[i]
+        new_other_valid.write(tmp)
+    for i in range(int(len(train_data) * 4 / 5), len(train_data)):
+        tmp = str(label_data[i].strip()) + '\t' + train_data[i]
+        new_test.write(tmp)
+        # new_other_test.write(other_data[i])
+        tmp = str(label_data[i].strip()) + '\t' + other_data[i]
+        new_other_test.write(tmp)
+
+    train.close()
+    other.close()
+    label.close()
+    new_test.close()
+    new_train.close()
+    new_valid.close()
+    new_other_test.close()
+    new_other_train.close()
+    new_other_valid.close()
+
+
+def multipl(a, b):
+    sumofab = 0.0
+    for i in range(len(a)):
+        temp = a[i] * b[i]
+        sumofab += temp
+    return sumofab
+
+
+def corrcoef(X, Y):
+    A = []
+    B = []
+    for i in X:
+        A.append(i / 10)
+    for i in Y:
+        B.append(i / 10)
+    n = len(A)
+    # 求和
+    sum1 = sum(A)
+    sum2 = sum(B)
+    # 求乘积之和
+    sumofxy = multipl(A, B)
+    # 求平方和
+    sumofx2 = sum([pow(i, 2) for i in A])
+    sumofy2 = sum([pow(j, 2) for j in B])
+    num = sumofxy - (float(sum1) * float(sum2) / n)
+    # 计算皮尔逊相关系数
+    den = sqrt((sumofx2 - float(sum1 ** 2) / n) * (sumofy2 - float(sum2 ** 2) / n))
+    return num / den
