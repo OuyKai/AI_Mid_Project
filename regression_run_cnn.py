@@ -418,8 +418,9 @@ if __name__ == '__main__':
     config.vocab_size = len(words)
     config.seq_length = max_len
     model = TextCNN(config)
-    with open(base_dir + "/word_vector.pkl", 'rb') as f:
-        embedding_weights = pickle.load(f)
+    if config.Use_embedding:
+        with open(base_dir + "/word_vector.pkl", 'rb') as f:
+            embedding_weights = pickle.load(f)
     train()
     forecast()
     log, loss_test, acc_test = test()
