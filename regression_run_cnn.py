@@ -15,11 +15,10 @@ import numpy as np
 import tensorflow as tf
 from gensim import corpora
 from gensim.models import word2vec
-from sklearn import metrics
 
 from data.load_helper_regression import read_category, batch_iter, process_file
 from regression_cnn_model import TCNNConfig, TextCNN
-from regression_data import data_pack, corrcoef
+from regression_data import data_pack
 
 num_classes = 101  # Attention!!!!!!!!!!!!!!!
 
@@ -45,12 +44,13 @@ def get_time_dif(start_time):
     return timedelta(seconds=int(round(time_dif)))
 
 
-def feed_data(x_batch, y_batch, re_batch, keep_prob):
+def feed_data(x_batch, y_batch, re_batch, keep_prob, training=False):
     feed_dict = {
         model.input_x: x_batch,
         model.input_y: y_batch,
         model.input_re: re_batch,
-        model.keep_prob: keep_prob
+        model.keep_prob: keep_prob,
+        model.training: training
     }
     return feed_dict
 
@@ -64,6 +64,7 @@ def evaluate(sess, x_, y_, re_):
     for x_batch, y_batch, re_batch in batch_eval:
         batch_len = len(x_batch)
         feed_dict = feed_data(x_batch, y_batch, re_batch, 1.0)
+        sess.run(model.update_op, feed_dict=feed_dict)
         loss, acc = sess.run([model.loss, model.acc], feed_dict=feed_dict)
         total_loss += loss * batch_len
         total_acc += acc * batch_len
@@ -74,10 +75,12 @@ def evaluate(sess, x_, y_, re_):
 def forecast():
     print("Loading forecast data...")
     start_time = time.time()
-    x_test, y_test = process_file(forecast_dir, forecast_other_dir, word_to_id, cat_to_id, config.seq_length)
+    x_test, y_test, re_test = process_file(forecast_dir, forecast_other_dir, word_to_id, cat_to_id, config.seq_length)
 
     session = tf.Session()
     session.run(tf.global_variables_initializer())
+    session.run(tf.local_variables_initializer())
+    # session.run(model.updata_op)
     saver = tf.train.Saver()
     saver.restore(sess=session, save_path=save_path)  # 读取保存的模型
 
@@ -87,13 +90,15 @@ def forecast():
     data_len = len(x_test)
     num_batch = int((data_len - 1) / batch_size) + 1
 
-    y_pred_cls = np.zeros(shape=len(x_test), dtype=np.int32)  # 保存预测结果
+    y_pred_cls = np.zeros(shape=(len(x_test), 1), dtype=np.int32)  # 保存预测结果
     for i in range(num_batch):  # 逐批次处理
         start_id = i * batch_size
         end_id = min((i + 1) * batch_size, data_len)
         feed_dict = {
             model.input_x: x_test[start_id:end_id],
-            model.keep_prob: 1.0
+            model.keep_prob: 1.0,
+            model.input_re: re_test[start_id:end_id],
+            model.training: False
         }
         y_pred_cls[start_id:end_id] = session.run(model.y_pred_cls, feed_dict=feed_dict)
 
@@ -145,6 +150,8 @@ def train():
     # 创建session
     session = tf.Session()
     session.run(tf.global_variables_initializer())
+    session.run(tf.local_variables_initializer())
+    # session.run(model.updata_op)
     writer.add_graph(session.graph)
 
     print('Training and evaluating...')
@@ -152,23 +159,27 @@ def train():
     total_batch = 0  # 总批次
     best_acc_val = 0.0  # 最佳验证集准确率
     last_improved = 0  # 记录上一次提升批次
-    require_improvement = 1000  # 如果超过1000轮未提升，提前结束训练
+    require_improvement = 3000  # 如果超过1000轮未提升，提前结束训练
 
     flag = False
     for epoch in range(config.num_epochs):
         print('Epoch:', epoch + 1)
         batch_train = batch_iter(x_train, y_train, re_train, config.batch_size)
         for x_batch, y_batch, re_batch in batch_train:
-            feed_dict = feed_data(x_batch, y_batch, re_batch, config.dropout_keep_prob)
+            feed_dict = feed_data(x_batch, y_batch, re_batch, config.dropout_keep_prob, True)
 
             if total_batch % config.save_per_batch == 0:
                 # 每多少轮次将训练结果写入tensorboard scalar
+                feed_dict[model.training] = False
+                session.run(model.update_op, feed_dict=feed_dict)
                 s = session.run(merged_summary, feed_dict=feed_dict)
                 writer.add_summary(s, total_batch)
 
             if total_batch % config.print_per_batch == 0:
                 # 每多少轮次输出在训练集和验证集上的性能
                 feed_dict[model.keep_prob] = 1.0
+                feed_dict[model.training] = False
+                session.run(model.update_op, feed_dict=feed_dict)
                 loss_train, acc_train = session.run([model.loss, model.acc], feed_dict=feed_dict)
                 loss_val, acc_val = evaluate(session, x_val, y_val, re_val)  # todo
 
@@ -182,10 +193,11 @@ def train():
                     improved_str = ''
 
                 time_dif = get_time_dif(start_time)
-                msg = 'Iter: {0:>6}, Train Loss: {1:>6.2}, Train Acc: {2:>7.2%},' \
-                      + ' Val Loss: {3:>6.2}, Val Acc: {4:>7.2%}, Time: {5} {6}'
+                msg = 'Iter: {0:>6}, Train Loss: {1:>6.2}, Train Acc: {2:>7.2},' \
+                      + ' Val Loss: {3:>6.2}, Val Acc: {4:>7.2}, Time: {5} {6}'
                 print(msg.format(total_batch, loss_train, acc_train, loss_val, acc_val, time_dif, improved_str))
 
+            feed_dict[model.training] = True
             session.run(model.optim, feed_dict=feed_dict)  # 运行优化
             total_batch += 1
 
@@ -205,39 +217,14 @@ def test():
 
     session = tf.Session()
     session.run(tf.global_variables_initializer())
+    session.run(tf.local_variables_initializer())
     saver = tf.train.Saver()
     saver.restore(sess=session, save_path=save_path)  # 读取保存的模型
 
     print('Testing...')
     loss_test, acc_test = evaluate(session, x_test, y_test, re_test)
-    msg = 'Test Loss: {0:>6.2}, Test Acc: {1:>7.2%}'
+    msg = 'Test Loss: {0:>6.2}, Test Acc: {1:>7.2}'
     print(msg.format(loss_test, acc_test))
-
-    batch_size = 128
-    data_len = len(x_test)
-    num_batch = int((data_len - 1) / batch_size) + 1
-
-    y_test_cls = np.argmax(y_test, 1)
-    y_pred_cls = np.zeros(shape=len(x_test), dtype=np.int32)  # 保存预测结果
-    for i in range(num_batch):  # 逐批次处理
-        start_id = i * batch_size
-        end_id = min((i + 1) * batch_size, data_len)
-        feed_dict = {
-            model.input_x: x_test[start_id:end_id],
-            model.keep_prob: 1.0
-        }
-        y_pred_cls[start_id:end_id] = session.run(model.y_pred_cls, feed_dict=feed_dict)
-
-    # 评估
-    print("Precision, Recall and F1-Score...")
-    print(corrcoef(y_test_cls, y_pred_cls))
-    # print(metrics.classification_report(y_test_cls, y_pred_cls, target_names=categories))
-
-    # 混淆矩阵
-    print("Confusion Matrix...")
-    cm = metrics.confusion_matrix(y_test_cls, y_pred_cls)
-    print(cm)
-
     time_dif = get_time_dif(start_time)
     print("Time usage:", time_dif)
     return msg.format(loss_test, acc_test), loss_test, acc_test
@@ -264,6 +251,11 @@ def log_and_clean(test_result, para, loss_test, acc_test):
     dic['learning_rate'] = para.learning_rate
     dic['batch_size'] = para.batch_size
     dic['num_epochs'] = para.num_epochs
+    dic['Three_filter_open'] = para.Three_filter_open
+    dic['Use_embedding'] = para.Use_embedding
+    dic['choose_wordVector'] = para.choose_wordVector
+    dic['Use_batch_normalization'] = para.Use_batch_normalization
+    dic['num_hidden_layers'] = para.num_hidden_layers
     f1 = open(filename_prefix + str(filenum) + filename_suffix, 'w')
     f2 = open(filename_prefix_1 + str(filenum) + filename_suffix, 'w')
     f1.write(json.dumps(dic))
@@ -335,14 +327,19 @@ def load_dic(num):
                 frequency[token] += 1
         texts = [[token for token in text if frequency[token] > 1]
                  for text in texts]
-
+        # max_len = 0
+        # for i in texts:
+        #     if len(i) > max_len:
+        #         max_len = len(i)
         dictionary = corpora.Dictionary(texts)
         dictionary.save(vocab_dir)
         f.close()
     else:
         dictionary = corpora.Dictionary.load(vocab_dir)
 
-    max_len = 6
+    max_len = 1700
+    if num == 5:
+        max_len = 1463
     return dictionary, max_len
 
 
@@ -385,8 +382,7 @@ def build_word_array(word_to_id, model, item):
                     word_to_id_copy.pop(line)
                     del_num += 1
             pickle.dump(vector_array, o)
-        max_len = 1453
-        return word_to_id_copy, max_len
+        return word_to_id_copy
 
 
 def build_vector(fileName):
@@ -407,18 +403,26 @@ if __name__ == '__main__':
     config.num_classes = num_classes
     print('Building dictionary...')
     dictionary, max_len = load_dic(num_classes)
-    model = build_vector("data/" + str(num_classes) + "/original_data/trainData.txt")
+    dictionary.filter_extremes(no_below=1, no_above=0.5, keep_n=None)
+    dictionary.compactify()
     word_to_id = dictionary.token2id
+    id_to_word = dictionary.id2token
     print('Performing word2vec...')
     if config.Use_embedding:
-        word_to_id, max_len = build_word_array(word_to_id, model)
+        config.choose_wordVector = 0  # 0是glove,1是word2vec
+        model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
+        word_to_id = build_word_array(word_to_id, model, config.choose_wordVector)
+
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
     config.vocab_size = len(words)
     config.seq_length = max_len
     model = TextCNN(config)
+    with open(base_dir + "/word_vector.pkl", 'rb') as f:
+        embedding_weights = pickle.load(f)
     train()
     forecast()
     log, loss_test, acc_test = test()
     log_and_clean(log, config, loss_test, acc_test)
     print('Completed!')
+    # winsound.Beep(3000, 3000)

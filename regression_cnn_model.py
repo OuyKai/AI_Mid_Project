@@ -18,21 +18,22 @@ class TCNNConfig(object):
 
     hidden_dim = 128  # 全连接层神经元
 
-    dropout_keep_prob = 0.5  # dropout保留比例
+    dropout_keep_prob = 1  # dropout保留比例
     learning_rate = 1e-3  # 学习率
 
     batch_size = 100  # 每批训练大小
-    num_epochs = 15  # 总迭代轮次
+    num_epochs = 1  # 总迭代轮次
 
     print_per_batch = 100  # 每多少轮输出一次结果
     save_per_batch = 10  # 每多少轮存入tensorboard
 
-    Three_filter_open = True  # 3种卷积核大小模式
-    Use_embedding = False  # 使用word2vec
+    Use_tags = True  # 是否使用标签信息
+    Three_filter_open = False  # 3种卷积核大小模式
+    Use_embedding = True  # 使用word2vec
     choose_wordVector = 0  # 0是glove,1是word2vector
     Use_batch_normalization = False  # 使用BN
 
-    num_hidden_layers = 3  # 隐藏层数量
+    num_hidden_layers = 1  # 隐藏层数量
 
 
 class TextCNN(object):
@@ -43,7 +44,7 @@ class TextCNN(object):
 
         # 三个待输入的数据
         self.input_x = tf.placeholder(tf.int32, [None, self.config.seq_length], name='input_x')
-        self.input_y = tf.placeholder(tf.float32, [None, self.config.num_classes], name='input_y')
+        self.input_y = tf.placeholder(tf.float32, [None, 1], name='input_y')
         self.input_re = tf.placeholder(tf.float32, [None, 6], name='input_re')
         self.keep_prob = tf.placeholder(tf.float32, name='keep_prob')
         self.training = tf.placeholder(tf.bool, name='keep_prob')
@@ -51,7 +52,7 @@ class TextCNN(object):
 
     def cnn(self):
         """CNN模型"""
-
+        # self.input_y = self.input_y/10
         # 词向量加载
         if self.config.Use_embedding:
             with open('data/' + str(self.config.num_classes) + "/word_vector.pkl", 'rb') as f:
@@ -98,7 +99,12 @@ class TextCNN(object):
                     gmp_0 = tf.layers.batch_normalization(gmp_0, training=self.training, momentum=0.9)
                 gmp_out = gmp_0
             gmp_out = tf.concat([gmp_out, self.input_re], 1, name='combine__')
-            fc_list = [tf.layers.dense(gmp_out, self.config.hidden_dim, name='fc1', kernel_regularizer=regularizer)]
+            if self.config.Use_tags:
+                fc_list = [
+                    tf.layers.dense(gmp_out, self.config.hidden_dim, name='fc1', kernel_regularizer=regularizer)]
+            else:
+                fc_list = [
+                    tf.layers.dense(self.input_re, self.config.hidden_dim, name='fc1', kernel_regularizer=regularizer)]
             fc_list[-1] = tf.contrib.layers.dropout(fc_list[-1], self.keep_prob)
             if self.config.Use_batch_normalization:
                 fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.9)
@@ -110,21 +116,17 @@ class TextCNN(object):
                 if self.config.Use_batch_normalization:
                     fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.9)
                 fc_list[-1] = tf.nn.relu6(fc_list[-1])
-            # 分类器
+            # 输出分数
 
-            self.logits = tf.layers.dense(fc_list[-1], self.config.num_classes, name='fc2')
-            self.y_pred_cls = tf.argmax(tf.nn.softmax(self.logits), 1)  # 预测类别
+            self.logits = tf.layers.dense(fc_list[-1], 1, name='fc2')
+            self.y_pred_cls = self.logits
 
         with tf.name_scope("optimize"):
-            # 损失函数，交叉熵
-            vars = tf.trainable_variables()
-            l2_loss = tf.losses.get_regularization_loss()
-            cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.logits, labels=self.input_y)
-            self.loss = tf.reduce_mean(cross_entropy)
+            # 损失函数，二范数
+            self.loss = tf.losses.mean_squared_error(self.input_y, self.y_pred_cls)
             # 优化器
             self.optim = tf.train.AdamOptimizer(learning_rate=self.config.learning_rate).minimize(self.loss)
 
         with tf.name_scope("accuracy"):
             # 准确率
-            correct_pred = tf.equal(tf.argmax(self.input_y, 1), self.y_pred_cls)
-            self.acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+            self.acc, self.update_op = tf.contrib.metrics.streaming_pearson_correlation(self.input_y, self.y_pred_cls)

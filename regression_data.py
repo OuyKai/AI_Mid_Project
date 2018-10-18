@@ -157,12 +157,18 @@ def read_data(num):
 def data_pack(num):
     read_train_filename = "data/" + str(num) + "/original_data/trainData.txt"
     read_train_other_filename = "data/" + str(num) + "/original_data/trainOther.txt"
+    read_forecast_filename = "data/" + str(num) + "/original_data/testData.txt"
+    read_forecast_other_filename = "data/" + str(num) + "/original_data/testOther.txt"
     read_label_filename = "data/" + str(num) + "/original_data/trainLabel.txt"
     if not os.path.exists(read_train_filename):
         read_data(num)
     train = open(read_train_filename, 'r', encoding='utf8')
     other = open(read_train_other_filename, 'r', encoding='UTF-8')
     label = open(read_label_filename, 'r', encoding='utf8')
+    forecast = open(read_forecast_filename, 'r', encoding='utf8')
+    forecast_other = open(read_forecast_other_filename, 'r', encoding='utf8')
+    forecast_data = forecast.readlines()
+    forecast_data_other = forecast_other.readlines()
     train_data = train.readlines()
     other_data = other.readlines()
     label_data = label.readlines()
@@ -180,9 +186,11 @@ def data_pack(num):
     new_train = open('data/' + str(num) + '/trainData_packed.txt', 'w', encoding='utf8')
     new_valid = open('data/' + str(num) + '/validData_packed.txt', 'w', encoding='utf8')
     new_test = open('data/' + str(num) + '/testData_packed.txt', 'w', encoding='utf8')
+    new_forecast = open('data/' + str(num) + '/forecastData_packed.txt', 'w', encoding='utf8')
     new_other_train = open('data/' + str(num) + '/train_otherData_packed.txt', 'w', encoding='utf8')
     new_other_valid = open('data/' + str(num) + '/valid_otherData_packed.txt', 'w', encoding='utf8')
     new_other_test = open('data/' + str(num) + '/test_otherData_packed.txt', 'w', encoding='utf8')
+    new_other_forecast = open('data/' + str(num) + '/forecast_otherData_packed.txt', 'w', encoding='utf8')
 
     for i in range(int(len(train_data) * 3 / 5)):
         tmp = str(label_data[i].strip()) + '\t' + train_data[i]
@@ -202,16 +210,24 @@ def data_pack(num):
         # new_other_test.write(other_data[i])
         tmp = str(label_data[i].strip()) + '\t' + other_data[i]
         new_other_test.write(tmp)
+    for i in range(len(forecast_data)):
+        tmp = '0' + '\t' + forecast_data[i]
+        new_forecast.write(tmp)
+        tmp = forecast_data_other[i]
+        new_other_forecast.write(tmp)
 
     train.close()
     other.close()
     label.close()
+    forecast.close()
     new_test.close()
     new_train.close()
     new_valid.close()
+    new_forecast.close()
     new_other_test.close()
     new_other_train.close()
     new_other_valid.close()
+    new_other_forecast.close()
 
 
 def multipl(a, b):
