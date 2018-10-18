@@ -8,6 +8,7 @@ import os
 import pickle
 import shutil
 import time
+import winsound
 from collections import defaultdict
 from datetime import timedelta
 
@@ -21,7 +22,7 @@ from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
 
-num_classes = 5  # Attention!!!!!!!!!!!!!!!
+num_classes = 2  # Attention!!!!!!!!!!!!!!!
 
 base_dir = 'data/' + str(num_classes)
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
@@ -43,11 +44,12 @@ def get_time_dif(start_time):
     return timedelta(seconds=int(round(time_dif)))
 
 
-def feed_data(x_batch, y_batch, keep_prob):
+def feed_data(x_batch, y_batch, keep_prob, training):
     feed_dict = {
         model.input_x: x_batch,
         model.input_y: y_batch,
-        model.keep_prob: keep_prob
+        model.keep_prob: keep_prob,
+        model.training: training
     }
     return feed_dict
 
@@ -60,7 +62,7 @@ def evaluate(sess, x_, y_):
     total_acc = 0.0
     for x_batch, y_batch in batch_eval:
         batch_len = len(x_batch)
-        feed_dict = feed_data(x_batch, y_batch, 1.0)
+        feed_dict = feed_data(x_batch, y_batch, 1.0, False)
         loss, acc = sess.run([model.loss, model.acc], feed_dict=feed_dict)
         total_loss += loss * batch_len
         total_acc += acc * batch_len
@@ -90,7 +92,8 @@ def forecast():
         end_id = min((i + 1) * batch_size, data_len)
         feed_dict = {
             model.input_x: x_test[start_id:end_id],
-            model.keep_prob: 1.0
+            model.keep_prob: 1.0,
+            model.training: False
         }
         y_pred_cls[start_id:end_id] = session.run(model.y_pred_cls, feed_dict=feed_dict)
 
@@ -146,14 +149,14 @@ def train():
     total_batch = 0  # 总批次
     best_acc_val = 0.0  # 最佳验证集准确率
     last_improved = 0  # 记录上一次提升批次
-    require_improvement = 1000  # 如果超过1000轮未提升，提前结束训练
+    require_improvement = 300  # 如果超过1000轮未提升，提前结束训练
 
     flag = False
     for epoch in range(config.num_epochs):
         print('Epoch:', epoch + 1)
         batch_train = batch_iter(x_train, y_train, config.batch_size)
         for x_batch, y_batch in batch_train:
-            feed_dict = feed_data(x_batch, y_batch, config.dropout_keep_prob)
+            feed_dict = feed_data(x_batch, y_batch, config.dropout_keep_prob, True)
 
             if total_batch % config.save_per_batch == 0:
                 # 每多少轮次将训练结果写入tensorboard scalar
@@ -183,7 +186,7 @@ def train():
             session.run(model.optim, feed_dict=feed_dict)  # 运行优化
             total_batch += 1
 
-            if total_batch - last_improved > require_improvement:
+            if total_batch - last_improved > require_improvement or acc_val < acc_train - 0.3:
                 # 验证集正确率长期不提升，提前结束训练
                 print("No optimization for a long time, auto-stopping...")
                 flag = True
@@ -218,7 +221,8 @@ def test():
         end_id = min((i + 1) * batch_size, data_len)
         feed_dict = {
             model.input_x: x_test[start_id:end_id],
-            model.keep_prob: 1.0
+            model.keep_prob: 1,
+            model.training: False
         }
         y_pred_cls[start_id:end_id] = session.run(model.y_pred_cls, feed_dict=feed_dict)
 
@@ -336,24 +340,54 @@ def load_dic(num):
     else:
         dictionary = corpora.Dictionary.load(vocab_dir)
 
-    max_len = 500
+    max_len = 1500
     if num == 2:
         max_len = 1463
     return dictionary, max_len
 
 
-#制作词向量矩阵
-def build_word_array(word_to_id, model):
-    data={}
-    vector_array=[]
+# 制作词向量矩阵
+def build_word_array(word_to_id, model, item):
+    data = {}
+    vector_array = []
     word_to_id_copy = word_to_id.copy()
-    with open("glove_word_vector.pkl", 'wb') as o:
-        for i in word_to_id.keys():
-            vector_array.append(list(model[i]))
+    if item == 1:
+        with open("word_vector.pkl", 'wb') as o:
+            for i in word_to_id.keys():
+                vector_array.append(list(model[i]))
 
-        pickle.dump(vector_array,o)
+    else:
+        with open("word_vector.pkl", 'wb') as o, \
+                open("vectors" + str(num_classes) + ".txt", 'r', encoding='utf8') as f:
+            # for i in word_to_id.keys():
+            # vector_array.append(list(model[i]))
+            for line in f.readlines():
+                num = 0
+                line_vector = []
+                line_key = ''
+                for word in line.split():
+                    if num == 0:
+                        line_key = word
+                        num += 1
+                    else:
+                        line_vector.append(float(word.strip()))
+                data[line_key] = line_vector
+            max_len = 0
+            del_num = 0
+            for line in word_to_id.keys():
+                # print(line)
+                word_to_id_copy[line] -= del_num
+                if line in data.keys():
+                    vector_array.append(data[line])
+                    if len(line) > max_len:
+                        max_len = len(line)
+                else:
+                    word_to_id_copy.pop(line)
+                    del_num += 1
+            pickle.dump(vector_array, o)
         max_len = 1453
-        return word_to_id_copy,max_len
+        return word_to_id_copy, max_len
+
 
 def build_vector(fileName):
     if os.path.exists("data/" + str(num_classes) + "/" + str(num_classes) + "model.model"):
@@ -373,18 +407,26 @@ if __name__ == '__main__':
     config.num_classes = num_classes
     print('Building dictionary...')
     dictionary, max_len = load_dic(num_classes)
-    model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
+    dictionary.filter_extremes(no_below=1, no_above=0.5, keep_n=None)
+    dictionary.compactify()
     word_to_id = dictionary.token2id
+    id_to_word = dictionary.id2token
     print('Performing word2vec...')
     if config.Use_embedding:
-        word_to_id, max_len = build_word_array(word_to_id, model)
+        config.choose_wordVector = 0  # 0是glove,1是word2vec
+        model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
+        word_to_id, max_len = build_word_array(word_to_id, model, config.choose_wordVector)
+
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
     config.vocab_size = len(words)
-    config.seq_length = max_len
+    # config.seq_length = max_len
     model = TextCNN(config)
+    with open("word_vector.pkl", 'rb') as f:
+        embedding_weights = pickle.load(f)
     train()
     forecast()
     log, loss_test, acc_test = test()
     log_and_clean(log, config, loss_test, acc_test)
     print('Completed!')
+    winsound.Beep(3000, 3000)
