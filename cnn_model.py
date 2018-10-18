@@ -32,7 +32,7 @@ class TCNNConfig(object):
     choose_wordVector = 0  # 0是glove,1是word2vector
     Use_batch_normalization = False  # 使用BN
 
-    num_hidden_layers = 1  # 隐藏层数量
+    num_hidden_layers = 2  # 隐藏层数量
 
 
 class TextCNN(object):
@@ -53,7 +53,7 @@ class TextCNN(object):
 
         # 词向量加载
         if self.config.Use_embedding:
-            with open("word_vector.pkl", 'rb') as f:
+            with open('data/' + str(self.config.num_classes) + "/word_vector.pkl", 'rb') as f:
                 embedding_weights = pickle.load(f)
 
         # 词向量映射
