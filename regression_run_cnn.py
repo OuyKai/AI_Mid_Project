@@ -116,7 +116,7 @@ def forecast():
         if hh[i] == 100:
             f.write(str(10) + '\n')
         else:
-            f.write(str(hh[i] / 10) + '\n')
+            f.write(str(y_pred_cls[i][0] / 10) + '\n')
     f.close()
     time_dif = get_time_dif(start_time)
     print("Time usage:", time_dif)
