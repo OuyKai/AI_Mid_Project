@@ -11,7 +11,6 @@ import time
 from collections import defaultdict
 from datetime import timedelta
 
-import nltk.stem
 import numpy as np
 import tensorflow as tf
 from gensim import corpora
@@ -22,7 +21,7 @@ from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
 
-num_classes = 5  # Attention!!!!!!!!!!!!!!!
+num_classes = 2  # Attention!!!!!!!!!!!!!!!
 
 base_dir = 'data/' + str(num_classes)
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
@@ -323,8 +322,8 @@ def load_dic(num):
         # stoplist = set()
         texts = [[word for word in document.lower().split() if word not in stoplist]
                  for document in documents]
-        s = nltk.stem.SnowballStemmer('english')
-        texts = [[s.stem(word) for word in text] for text in texts]
+        # s = nltk.stem.SnowballStemmer('english')
+        # texts = [[s.stem(word) for word in text] for text in texts]
         for line in texts:
             for word in line:
                 o.write(word + " ")
@@ -337,18 +336,18 @@ def load_dic(num):
                 frequency[token] += 1
         texts = [[token for token in text if frequency[token] > 1]
                  for text in texts]
-        max_len = 0
-        for i in texts:
-            if len(i) > max_len:
-                max_len = len(i)
+        # max_len = 0
+        # for i in texts:
+        #     if len(i) > max_len:
+        #         max_len = len(i)
         dictionary = corpora.Dictionary(texts)
         dictionary.save(vocab_dir)
         f.close()
     else:
         dictionary = corpora.Dictionary.load(vocab_dir)
 
-    max_len = 1500
-    if num == 2:
+    max_len = 1700
+    if num == 5:
         max_len = 1463
     return dictionary, max_len
 
@@ -392,8 +391,7 @@ def build_word_array(word_to_id, model, item):
                     word_to_id_copy.pop(line)
                     del_num += 1
             pickle.dump(vector_array, o)
-        max_len = 1453
-        return word_to_id_copy, max_len
+        return word_to_id_copy
 
 
 def build_vector(fileName):
@@ -422,12 +420,12 @@ if __name__ == '__main__':
     if config.Use_embedding:
         config.choose_wordVector = 0  # 0是glove,1是word2vec
         model = build_vector("data/" + str(num_classes) + "/original_data/trainData_new.txt")
-        word_to_id, max_len = build_word_array(word_to_id, model, config.choose_wordVector)
+        word_to_id = build_word_array(word_to_id, model, config.choose_wordVector)
 
     words = list(word_to_id.keys())
     categories, cat_to_id = read_category(num_classes)
     config.vocab_size = len(words)
-    # config.seq_length = max_len
+    config.seq_length = max_len
     model = TextCNN(config)
     with open(base_dir + "/word_vector.pkl", 'rb') as f:
         embedding_weights = pickle.load(f)

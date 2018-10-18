@@ -69,9 +69,7 @@ def process_file(First_filename, Second_filename, word_to_id, cat_to_id, max_len
     re_pad = []
     other_data_file = open(Second_filename, 'r', encoding='UTF-8')
     for line in other_data_file.readlines():
-        for i in range(len(line)):
-            line[i] = float(line[i])
-        re_pad.append(line)
+        re_pad.append(line.split()[1:])
     other_data_file.close()
 
     return x_pad, y_pad, re_pad
@@ -85,7 +83,7 @@ def batch_iter(x, y, re, batch_size=64):
     indices = np.random.permutation(np.arange(data_len))
     x_shuffle = x[indices]
     y_shuffle = y[indices]
-    re_shuffle = re[indices]
+    re_shuffle = np.array(re)[indices]
 
     for i in range(num_batch):
         start_id = i * batch_size

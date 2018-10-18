@@ -1,10 +1,10 @@
-import random
-import pandas as pd
 import os
+import random
 from collections import defaultdict
-from gensim import corpora
 from math import sqrt
 
+import pandas as pd
+from gensim import corpora
 
 base_dir = 'data/101'
 vocab_dir = os.path.join(base_dir, 'My_dic')
@@ -158,6 +158,8 @@ def data_pack(num):
     read_train_filename = "data/" + str(num) + "/original_data/trainData.txt"
     read_train_other_filename = "data/" + str(num) + "/original_data/trainOther.txt"
     read_label_filename = "data/" + str(num) + "/original_data/trainLabel.txt"
+    if not os.path.exists(read_train_filename):
+        read_data(num)
     train = open(read_train_filename, 'r', encoding='utf8')
     other = open(read_train_other_filename, 'r', encoding='UTF-8')
     label = open(read_label_filename, 'r', encoding='utf8')

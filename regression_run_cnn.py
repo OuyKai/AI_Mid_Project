@@ -3,23 +3,23 @@
 
 # from __future__ import print_function
 
-from gensim import corpora
-from collections import defaultdict
-import os
 import json
-import time
-import shutil
-from datetime import timedelta
+import os
 import pickle
+import shutil
+import time
+from collections import defaultdict
+from datetime import timedelta
+
 import numpy as np
 import tensorflow as tf
 from gensim import corpora
 from gensim.models import word2vec
 from sklearn import metrics
 
-from regression_cnn_model import TCNNConfig, TextCNN
 from data.load_helper_regression import read_category, batch_iter, process_file
-from regression_data import read_data, data_pack, corrcoef
+from regression_cnn_model import TCNNConfig, TextCNN
+from regression_data import data_pack, corrcoef
 
 num_classes = 101  # Attention!!!!!!!!!!!!!!!
 
@@ -29,7 +29,7 @@ train_other_dir = os.path.join(base_dir, 'train_otherData_packed.txt')
 test_dir = os.path.join(base_dir, 'testData_packed.txt')
 test_other_dir = os.path.join(base_dir, 'test_otherData_packed.txt')
 val_dir = os.path.join(base_dir, 'validData_packed.txt')
-val_other_dir = os.path.join(base_dir, 'val_otherData_packed.txt')
+val_other_dir = os.path.join(base_dir, 'valid_otherData_packed.txt')
 vocab_dir = os.path.join(base_dir, 'My_dic')
 forecast_dir = os.path.join(base_dir, 'forecastData_packed.txt')
 forecast_other_dir = os.path.join(base_dir, 'forecast_otherData_packed.txt')
@@ -314,12 +314,19 @@ def load_dic(num):
     if not os.path.exists(vocab_dir):
         f = open("data/" + str(num) + "/original_data/trainData.txt", 'r', encoding='utf8')
         documents = f.readlines()
+        o = open("data/" + str(num) + "/original_data/trainData_new.txt", 'w', encoding='utf8')
 
         # 去掉停用词
         stoplist = set('for a of the and to in'.split())
         # stoplist = set()
         texts = [[word for word in document.lower().split() if word not in stoplist]
                  for document in documents]
+        # s = nltk.stem.SnowballStemmer('english')
+        # texts = [[s.stem(word) for word in text] for text in texts]
+        for line in texts:
+            for word in line:
+                o.write(word + " ")
+            o.write('\n')
 
         # 去掉只出现一次的单词
         frequency = defaultdict(int)
@@ -328,31 +335,56 @@ def load_dic(num):
                 frequency[token] += 1
         texts = [[token for token in text if frequency[token] > 1]
                  for text in texts]
-        max_len = 0
-        for i in texts:
-            if len(i) > max_len:
-                max_len = len(i)
+
         dictionary = corpora.Dictionary(texts)
         dictionary.save(vocab_dir)
         f.close()
     else:
         dictionary = corpora.Dictionary.load(vocab_dir)
 
-    max_len = 500
-    if num == 2:
-        max_len = 1463
+    max_len = 6
     return dictionary, max_len
 
 
 # 制作词向量矩阵
-def build_word_array(word_to_id, model):
+def build_word_array(word_to_id, model, item):
+    data = {}
     vector_array = []
     word_to_id_copy = word_to_id.copy()
-    with open("glove_word_vector.pkl", 'wb') as o:
-        for i in word_to_id.keys():
-            vector_array.append(list(model[i]))
+    if item == 1:
+        with open(base_dir + "/word_vector.pkl", 'wb') as o:
+            for i in word_to_id.keys():
+                vector_array.append(list(model[i]))
 
-        pickle.dump(vector_array, o)
+    else:
+        with open(base_dir + "/word_vector.pkl", 'wb') as o, \
+                open(base_dir + "/vectors" + str(num_classes) + ".txt", 'r', encoding='utf8') as f:
+            # for i in word_to_id.keys():
+            # vector_array.append(list(model[i]))
+            for line in f.readlines():
+                num = 0
+                line_vector = []
+                line_key = ''
+                for word in line.split():
+                    if num == 0:
+                        line_key = word
+                        num += 1
+                    else:
+                        line_vector.append(float(word.strip()))
+                data[line_key] = line_vector
+            max_len = 0
+            del_num = 0
+            for line in word_to_id.keys():
+                # print(line)
+                word_to_id_copy[line] -= del_num
+                if line in data.keys():
+                    vector_array.append(data[line])
+                    if len(line) > max_len:
+                        max_len = len(line)
+                else:
+                    word_to_id_copy.pop(line)
+                    del_num += 1
+            pickle.dump(vector_array, o)
         max_len = 1453
         return word_to_id_copy, max_len
 
