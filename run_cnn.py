@@ -8,10 +8,10 @@ import os
 import pickle
 import shutil
 import time
-import winsound
 from collections import defaultdict
 from datetime import timedelta
 
+import nltk.stem
 import numpy as np
 import tensorflow as tf
 from gensim import corpora
@@ -22,7 +22,7 @@ from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
 
-num_classes = 2  # Attention!!!!!!!!!!!!!!!
+num_classes = 5  # Attention!!!!!!!!!!!!!!!
 
 base_dir = 'data/' + str(num_classes)
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
@@ -261,6 +261,11 @@ def log_and_clean(test_result, para, loss_test, acc_test):
     dic['learning_rate'] = para.learning_rate
     dic['batch_size'] = para.batch_size
     dic['num_epochs'] = para.num_epochs
+    dic['Three_filter_open'] = para.Three_filter_open
+    dic['Use_embedding'] = para.Use_embedding
+    dic['choose_wordVector'] = para.choose_wordVector
+    dic['Use_batch_normalization'] = para.Use_batch_normalization
+    dic['num_hidden_layers'] = para.num_hidden_layers
     f1 = open(filename_prefix + str(filenum) + filename_suffix, 'w')
     f2 = open(filename_prefix_1 + str(filenum) + filename_suffix, 'w')
     f1.write(json.dumps(dic))
@@ -318,6 +323,8 @@ def load_dic(num):
         # stoplist = set()
         texts = [[word for word in document.lower().split() if word not in stoplist]
                  for document in documents]
+        s = nltk.stem.SnowballStemmer('english')
+        texts = [[s.stem(word) for word in text] for text in texts]
         for line in texts:
             for word in line:
                 o.write(word + " ")
@@ -352,13 +359,13 @@ def build_word_array(word_to_id, model, item):
     vector_array = []
     word_to_id_copy = word_to_id.copy()
     if item == 1:
-        with open("word_vector.pkl", 'wb') as o:
+        with open(base_dir + "/word_vector.pkl", 'wb') as o:
             for i in word_to_id.keys():
                 vector_array.append(list(model[i]))
 
     else:
-        with open("word_vector.pkl", 'wb') as o, \
-                open("vectors" + str(num_classes) + ".txt", 'r', encoding='utf8') as f:
+        with open(base_dir + "/word_vector.pkl", 'wb') as o, \
+                open(base_dir + "/vectors" + str(num_classes) + ".txt", 'r', encoding='utf8') as f:
             # for i in word_to_id.keys():
             # vector_array.append(list(model[i]))
             for line in f.readlines():
@@ -422,11 +429,11 @@ if __name__ == '__main__':
     config.vocab_size = len(words)
     # config.seq_length = max_len
     model = TextCNN(config)
-    with open("word_vector.pkl", 'rb') as f:
+    with open(base_dir + "/word_vector.pkl", 'rb') as f:
         embedding_weights = pickle.load(f)
     train()
     forecast()
     log, loss_test, acc_test = test()
     log_and_clean(log, config, loss_test, acc_test)
     print('Completed!')
-    winsound.Beep(3000, 3000)
+    # winsound.Beep(3000, 3000)
