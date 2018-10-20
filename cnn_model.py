@@ -12,7 +12,7 @@ class TCNNConfig(object):
     embedding_dim = 300  # 词向量维度
     seq_length = 1500  # 序列长度
     num_classes = -1  # 类别数
-    num_filters = 700  # 卷积核数目
+    num_filters = 200  # 卷积核数目
     kernel_size = 6  # 卷积核尺寸
     vocab_size = -1  # 词汇表达小
 
@@ -27,7 +27,7 @@ class TCNNConfig(object):
     print_per_batch = 100  # 每多少轮输出一次结果
     save_per_batch = 10  # 每多少轮存入tensorboard
 
-    Three_filter_open = False  # 3种卷积核大小模式
+    Three_filter_open = True  # 3种卷积核大小模式
     Use_embedding = True  # 使用word2vec
     choose_wordVector = 0  # 0是glove,1是word2vector
     Use_batch_normalization = False  # 使用BN
@@ -35,7 +35,7 @@ class TCNNConfig(object):
 
     num_hidden_layers = 1  # 隐藏层数量
 
-    l2_scale = 1.0  # 新操作，过拟合了就把这个调高
+    l2_scale = 2.0  # 新操作，过拟合了就把这个调高
 
 
 class TextCNN(object):
@@ -70,7 +70,7 @@ class TextCNN(object):
 
         with tf.name_scope("cnn"):
 
-            regularizer = tf.contrib.layers.l2_regularizer(scale=1.0)
+            regularizer = tf.contrib.layers.l2_regularizer(scale=self.config.l2_scale)
             # CNN layer
             conv_0 = tf.layers.conv1d(embedding_inputs, self.config.num_filters, self.config.kernel_size, name='conv_0'
                                       )

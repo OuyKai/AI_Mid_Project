@@ -22,7 +22,7 @@ from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
 
-num_classes = 2  # Attention!!!!!!!!!!!!!!!
+num_classes = 5  # Attention!!!!!!!!!!!!!!!
 
 base_dir = 'data/' + str(num_classes)
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
