@@ -104,14 +104,16 @@ class TextCNN(object):
                     tf.layers.dense(gmp_out, self.config.hidden_dim, name='fc1', kernel_regularizer=regularizer)]
             else:
                 fc_list = [
-                    tf.layers.dense(self.input_re, self.config.hidden_dim, name='fc1', kernel_regularizer=regularizer)]
+                    tf.layers.dense(self.input_re, self.config.hidden_dim, name='fc1', kernel_regularizer=regularizer,
+                                    kernel_initializer=tf.truncated_normal_initializer())]
             fc_list[-1] = tf.contrib.layers.dropout(fc_list[-1], self.keep_prob)
             if self.config.Use_batch_normalization:
                 fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.9)
             fc_list[-1] = tf.nn.relu6(fc_list[-1])
             for i in range(self.config.num_hidden_layers - 1):
                 fc_list.append(tf.layers.dense(fc_list[-1], self.config.hidden_dim, name='fc1_' + str(i + 1),
-                                               kernel_regularizer=regularizer))
+                                               kernel_regularizer=regularizer,
+                                               kernel_initializer=tf.truncated_normal_initializer()))
                 fc_list[-1] = tf.contrib.layers.dropout(fc_list[-1], self.keep_prob)
                 if self.config.Use_batch_normalization:
                     fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.9)
@@ -125,7 +127,7 @@ class TextCNN(object):
             # 损失函数，二范数
             self.loss = tf.losses.mean_squared_error(self.input_y, self.y_pred_cls)
             # 优化器
-            self.optim = tf.train.AdamOptimizer(learning_rate=self.config.learning_rate).minimize(self.loss)
+            self.optim = tf.train.RMSPropOptimizer(learning_rate=self.config.learning_rate).minimize(self.loss)
 
         with tf.name_scope("accuracy"):
             # 准确率

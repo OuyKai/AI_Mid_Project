@@ -8,6 +8,7 @@ import os
 import pickle
 import shutil
 import time
+import winsound
 from collections import defaultdict
 from datetime import timedelta
 
@@ -434,4 +435,4 @@ if __name__ == '__main__':
     log, loss_test, acc_test = test()
     log_and_clean(log, config, loss_test, acc_test)
     print('Completed!')
-    # winsound.Beep(3000, 3000)
+    winsound.Beep(3000, 1000)

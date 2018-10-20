@@ -12,11 +12,11 @@ class TCNNConfig(object):
     embedding_dim = 300  # 词向量维度
     seq_length = 1500  # 序列长度
     num_classes = -1  # 类别数
-    num_filters = 200  # 卷积核数目
+    num_filters = 700  # 卷积核数目
     kernel_size = 6  # 卷积核尺寸
     vocab_size = -1  # 词汇表达小
 
-    hidden_dim = 128  # 全连接层神经元
+    hidden_dim = 256  # 全连接层神经元
 
     dropout_keep_prob = 0.5  # dropout保留比例
     learning_rate = 1e-3  # 学习率
@@ -27,12 +27,15 @@ class TCNNConfig(object):
     print_per_batch = 100  # 每多少轮输出一次结果
     save_per_batch = 10  # 每多少轮存入tensorboard
 
-    Three_filter_open = True  # 3种卷积核大小模式
+    Three_filter_open = False  # 3种卷积核大小模式
     Use_embedding = True  # 使用word2vec
     choose_wordVector = 0  # 0是glove,1是word2vector
     Use_batch_normalization = False  # 使用BN
+    Use_l2_loss = True  # 使用l2_loss
 
-    num_hidden_layers = 2  # 隐藏层数量
+    num_hidden_layers = 1  # 隐藏层数量
+
+    l2_scale = 1.0  # 新操作，过拟合了就把这个调高
 
 
 class TextCNN(object):
@@ -67,7 +70,7 @@ class TextCNN(object):
 
         with tf.name_scope("cnn"):
 
-            regularizer = tf.contrib.layers.l2_regularizer(scale=0.001)
+            regularizer = tf.contrib.layers.l2_regularizer(scale=1.0)
             # CNN layer
             conv_0 = tf.layers.conv1d(embedding_inputs, self.config.num_filters, self.config.kernel_size, name='conv_0'
                                       )
@@ -94,13 +97,13 @@ class TextCNN(object):
                 gmp_out = gmp_all
             else:
                 if self.config.Use_batch_normalization:
-                    gmp_0 = tf.layers.batch_normalization(gmp_0, training=self.training, momentum=0.9)
+                    gmp_0 = tf.layers.batch_normalization(gmp_0, training=self.training, momentum=0.5)
                 gmp_out = gmp_0
 
             fc_list = [tf.layers.dense(gmp_out, self.config.hidden_dim, name='fc1', kernel_regularizer=regularizer)]
             fc_list[-1] = tf.contrib.layers.dropout(fc_list[-1], self.keep_prob)
             if self.config.Use_batch_normalization:
-                fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.9)
+                fc_list[-1] = tf.layers.batch_normalization(fc_list[-1], training=self.training, momentum=0.5)
             fc_list[-1] = tf.nn.relu6(fc_list[-1])
             for i in range(self.config.num_hidden_layers - 1):
                 fc_list.append(tf.layers.dense(fc_list[-1], self.config.hidden_dim, name='fc1_' + str(i + 1),
@@ -120,6 +123,10 @@ class TextCNN(object):
             l2_loss = tf.losses.get_regularization_loss()
             cross_entropy = tf.nn.softmax_cross_entropy_with_logits_v2(logits=self.logits, labels=self.input_y)
             self.loss = tf.reduce_mean(cross_entropy)
+            reg_variables = tf.get_collection(tf.GraphKeys.REGULARIZATION_LOSSES)
+            reg_term = tf.contrib.layers.apply_regularization(regularizer, reg_variables)
+            if self.config.Use_l2_loss:
+                self.loss += reg_term
             # 优化器
             self.optim = tf.train.AdamOptimizer(learning_rate=self.config.learning_rate).minimize(self.loss)
 
