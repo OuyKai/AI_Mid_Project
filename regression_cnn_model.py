@@ -16,9 +16,9 @@ class TCNNConfig(object):
     kernel_size = 2  # 卷积核尺寸
     vocab_size = -1  # 词汇表达小
 
-    hidden_dim = 128  # 全连接层神经元
+    hidden_dim = 256  # 全连接层神经元
 
-    dropout_keep_prob = 1  # dropout保留比例
+    dropout_keep_prob = 0.9  # dropout保留比例
     learning_rate = 1e-3  # 学习率
 
     batch_size = 100  # 每批训练大小
@@ -33,7 +33,7 @@ class TCNNConfig(object):
     choose_wordVector = 0  # 0是glove,1是word2vector
     Use_batch_normalization = True  # 使用BN
 
-    num_hidden_layers = 2  # 隐藏层数量
+    num_hidden_layers = 1  # 隐藏层数量
 
 
 class TextCNN(object):
