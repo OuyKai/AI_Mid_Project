@@ -17,13 +17,13 @@ def data_pack(num):
     new_train = open('data/'+str(num)+'/trainData_packed.txt', 'w', encoding='utf8')
     new_valid = open('data/'+str(num)+'/validData_packed.txt','w',encoding='utf8')
     new_test = open('data/'+str(num)+'/testData_packed.txt', 'w', encoding='utf8')
-    for i in range(int(len(train_data)*3/5)):
+    for i in range(len(train_data) - 1000):
         tmp = label_data[i][0] + '\t' + train_data[i]
         new_train.write(tmp)
-    for i in range(int(len(train_data)*3/5),int(len(train_data)*4/5)):
+    for i in range(len(train_data) - 1000, len(train_data)):
         tmp = label_data[i][0] + '\t' + train_data[i]
         new_valid.write(tmp)
-    for i in range(int(len(train_data)*4/5),len(train_data)):
+    for i in range(len(train_data) - 1000, len(train_data)):
         tmp = label_data[i][0] + '\t' + train_data[i]
         new_test.write(tmp)
     train.close()

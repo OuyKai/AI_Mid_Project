@@ -81,7 +81,12 @@ def forecast():
     session.run(tf.global_variables_initializer())
     session.run(tf.local_variables_initializer())
     # session.run(model.updata_op)
-    saver = tf.train.Saver()
+    var_list = tf.trainable_variables()
+    g_list = tf.global_variables()
+    bn_moving_vars = [g for g in g_list if 'moving_mean' in g.name]
+    bn_moving_vars += [g for g in g_list if 'moving_variance' in g.name]
+    var_list += bn_moving_vars
+    saver = tf.train.Saver(var_list=var_list, max_to_keep=5)
     saver.restore(sess=session, save_path=save_path)  # 读取保存的模型
 
     print('Forecasting...')
@@ -135,7 +140,12 @@ def train():
     writer = tf.summary.FileWriter(tensorboard_dir)
 
     # 配置 Saver
-    saver = tf.train.Saver()
+    var_list = tf.trainable_variables()
+    g_list = tf.global_variables()
+    bn_moving_vars = [g for g in g_list if 'moving_mean' in g.name]
+    bn_moving_vars += [g for g in g_list if 'moving_variance' in g.name]
+    var_list += bn_moving_vars
+    saver = tf.train.Saver(var_list=var_list, max_to_keep=5)
     if not os.path.exists(save_dir):
         os.makedirs(save_dir)
 
@@ -218,7 +228,12 @@ def test():
     session = tf.Session()
     session.run(tf.global_variables_initializer())
     session.run(tf.local_variables_initializer())
-    saver = tf.train.Saver()
+    var_list = tf.trainable_variables()
+    g_list = tf.global_variables()
+    bn_moving_vars = [g for g in g_list if 'moving_mean' in g.name]
+    bn_moving_vars += [g for g in g_list if 'moving_variance' in g.name]
+    var_list += bn_moving_vars
+    saver = tf.train.Saver(var_list=var_list, max_to_keep=5)
     saver.restore(sess=session, save_path=save_path)  # 读取保存的模型
 
     print('Testing...')

@@ -9,10 +9,10 @@ import tensorflow as tf
 class TCNNConfig(object):
     """CNN配置参数"""
 
-    embedding_dim = 300  # 词向量维度
+    embedding_dim = 20  # 词向量维度
     seq_length = 1500  # 序列长度
     num_classes = -1  # 类别数
-    num_filters = 100  # 卷积核数目
+    num_filters = 1  # 卷积核数目
     kernel_size = 2  # 卷积核尺寸
     vocab_size = -1  # 词汇表达小
 
@@ -31,7 +31,7 @@ class TCNNConfig(object):
     Three_filter_open = False  # 3种卷积核大小模式
     Use_embedding = False  # 使用word2vec
     choose_wordVector = 0  # 0是glove,1是word2vector
-    Use_batch_normalization = False  # 使用BN
+    Use_batch_normalization = True  # 使用BN
 
     num_hidden_layers = 2  # 隐藏层数量
 
@@ -127,7 +127,9 @@ class TextCNN(object):
             # 损失函数，二范数
             self.loss = tf.losses.mean_squared_error(self.input_y, self.y_pred_cls)
             # 优化器
-            self.optim = tf.train.RMSPropOptimizer(learning_rate=self.config.learning_rate).minimize(self.loss)
+            update_ops = tf.get_collection(tf.GraphKeys.UPDATE_OPS)
+            with tf.control_dependencies(update_ops):
+                self.optim = tf.train.RMSPropOptimizer(learning_rate=self.config.learning_rate).minimize(self.loss)
 
         with tf.name_scope("accuracy"):
             # 准确率

@@ -22,7 +22,7 @@ from cnn_model import TCNNConfig, TextCNN
 from data.load_helper import read_category, batch_iter, process_file
 from data_pack import data_pack
 
-num_classes = 5  # Attention!!!!!!!!!!!!!!!
+num_classes = 2  # Attention!!!!!!!!!!!!!!!
 
 base_dir = 'data/' + str(num_classes)
 train_dir = os.path.join(base_dir, 'trainData_packed.txt')
@@ -186,7 +186,7 @@ def train():
             session.run(model.optim, feed_dict=feed_dict)  # 运行优化
             total_batch += 1
 
-            if total_batch - last_improved > require_improvement or acc_val < acc_train - 0.3:
+            if total_batch - last_improved > require_improvement:
                 # 验证集正确率长期不提升，提前结束训练
                 print("No optimization for a long time, auto-stopping...")
                 flag = True
